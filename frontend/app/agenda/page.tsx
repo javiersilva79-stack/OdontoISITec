@@ -12,8 +12,8 @@ type Turno = {
   consultorio_id: number;
   paciente_id: number;
   odontologo_id: number;
-  fecha: string;        // "YYYY-MM-DD"
-  hora_inicio: string;  // "HH:MM:SS"
+  fecha: string;
+  hora_inicio: string;
   duracion_min: number;
   estado: string;
 };
@@ -67,22 +67,26 @@ export default function AgendaPage() {
     setLoading(true);
     try {
       const [t, p, u, c] = await Promise.all([
-        apiFetch(`/agenda?fecha=${fecha}`),
-        apiFetch("/pacientes"),
-        apiFetch("/usuarios"),
-        apiFetch("/consultorios"),
+        apiFetch(`/agenda/?fecha=${fecha}`),
+        apiFetch("/pacientes/"),
+        apiFetch("/usuarios/"),
+        apiFetch("/consultorios/"),
       ]);
 
       setTurnos(Array.isArray(t) ? t : []);
       setPacientes(Array.isArray(p) ? p : []);
-      const od = Array.isArray(u) ? u.filter((x: any) => x.rol === "odontologo" || x.rol === "admin") : [];
+      const od = Array.isArray(u)
+        ? u.filter((x: any) => x.rol === "odontologo" || x.rol === "admin")
+        : [];
       setOdontologos(od);
       setConsultorios(Array.isArray(c) ? c : []);
 
-      // defaults si están vacíos
-      if (consultorioId === "" && Array.isArray(c) && c[0]?.id) setConsultorioId(c[0].id);
-      if (odontologoId === "" && Array.isArray(od) && od[0]?.id) setOdontologoId(od[0].id);
-      if (pacienteId === "" && Array.isArray(p) && p[0]?.id) setPacienteId(p[0].id);
+      if (consultorioId === "" && Array.isArray(c) && c[0]?.id)
+        setConsultorioId(c[0].id);
+      if (odontologoId === "" && Array.isArray(od) && od[0]?.id)
+        setOdontologoId(od[0].id);
+      if (pacienteId === "" && Array.isArray(p) && p[0]?.id)
+        setPacienteId(p[0].id);
     } catch (e: any) {
       setError(e?.message || "Error cargando agenda");
     } finally {
@@ -106,7 +110,7 @@ export default function AgendaPage() {
 
     setSaving(true);
     try {
-      await apiFetch("/turnos", {
+      await apiFetch("/turnos/", {
         method: "POST",
         body: JSON.stringify({
           consultorio_id: consultorioId,
@@ -127,98 +131,72 @@ export default function AgendaPage() {
     }
   }
 
+  // 👉 NUEVO: cambiar estado del turno
+  async function cambiarEstado(id: number, nuevo_estado: string) {
+    try {
+      await apiFetch(`/turnos/${id}/estado?nuevo_estado=${nuevo_estado}`, {
+        method: "PUT",
+      });
+      await cargarTodo();
+    } catch (e: any) {
+      setError(e?.message || "Error cambiando estado");
+    }
+  }
+
   return (
     <div style={{ padding: 24, fontFamily: "sans-serif" }}>
-      <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 12 }}>Agenda</h1>
+      <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 12 }}>
+        Agenda
+      </h1>
 
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 12,
+          alignItems: "center",
+          marginBottom: 16,
+          flexWrap: "wrap",
+        }}
+      >
         <label style={{ fontWeight: 700 }}>Fecha:</label>
-        <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+        <input
+          type="date"
+          value={fecha}
+          onChange={(e) => setFecha(e.target.value)}
+        />
         <button
           onClick={cargarTodo}
-          style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #ddd", background: "white", cursor: "pointer" }}
+          style={{
+            padding: "8px 12px",
+            borderRadius: 8,
+            border: "1px solid #ddd",
+            background: "white",
+            cursor: "pointer",
+          }}
         >
           Recargar
         </button>
       </div>
 
       {error && (
-        <div style={{ background: "#ffecec", color: "#b00020", padding: 12, borderRadius: 8, marginBottom: 16 }}>
+        <div
+          style={{
+            background: "#ffecec",
+            color: "#b00020",
+            padding: 12,
+            borderRadius: 8,
+            marginBottom: 16,
+          }}
+        >
           {error}
         </div>
       )}
 
-      {/* Alta turno */}
-      <form onSubmit={crearTurno} style={{ background: "white", padding: 16, borderRadius: 12, marginBottom: 16 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 12 }}>Nuevo turno</h2>
-
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Consultorio</div>
-            <select value={consultorioId} onChange={(e) => setConsultorioId(Number(e.target.value))}>
-              {consultorios.map((c) => (
-                <option key={c.id} value={c.id}>{c.nombre}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Paciente</div>
-            <select value={pacienteId} onChange={(e) => setPacienteId(Number(e.target.value))}>
-              {pacientes.map((p) => (
-                <option key={p.id} value={p.id}>{p.apellido}, {p.nombre}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Odontólogo</div>
-            <select value={odontologoId} onChange={(e) => setOdontologoId(Number(e.target.value))}>
-              {odontologos.map((u) => (
-                <option key={u.id} value={u.id}>{u.nombre}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Hora</div>
-            <input type="time" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} />
-          </div>
-
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Duración (min)</div>
-            <input
-              type="number"
-              min={5}
-              step={5}
-              value={duracion}
-              onChange={(e) => setDuracion(Number(e.target.value))}
-              style={{ width: 90 }}
-            />
-          </div>
-        </div>
-
-        <button
-          type="submit"
-          disabled={saving}
-          style={{
-            marginTop: 12,
-            padding: "10px 14px",
-            borderRadius: 10,
-            border: "none",
-            background: saving ? "#999" : "#1f4ed8",
-            color: "white",
-            fontWeight: 800,
-            cursor: saving ? "not-allowed" : "pointer",
-          }}
-        >
-          {saving ? "Guardando..." : "Crear turno"}
-        </button>
-      </form>
-
       {/* Lista turnos */}
       <div style={{ background: "white", padding: 16, borderRadius: 12 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 12 }}>Turnos del día</h2>
+        <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 12 }}>
+          Turnos del día
+        </h2>
 
         {loading ? (
           <div>Cargando...</div>
@@ -228,21 +206,41 @@ export default function AgendaPage() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #eee" }}>Hora</th>
-                <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #eee" }}>Paciente</th>
-                <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #eee" }}>Odontólogo</th>
-                <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #eee" }}>Consultorio</th>
-                <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #eee" }}>Estado</th>
+                <th style={{ padding: 10 }}>Hora</th>
+                <th style={{ padding: 10 }}>Paciente</th>
+                <th style={{ padding: 10 }}>Odontólogo</th>
+                <th style={{ padding: 10 }}>Consultorio</th>
+                <th style={{ padding: 10 }}>Estado</th>
               </tr>
             </thead>
             <tbody>
               {turnos.map((t) => (
                 <tr key={t.id}>
-                  <td style={{ padding: 10, borderBottom: "1px solid #f3f3f3" }}>{t.hora_inicio.slice(0, 5)}</td>
-                  <td style={{ padding: 10, borderBottom: "1px solid #f3f3f3" }}>{pacientesMap.get(t.paciente_id) ?? `#${t.paciente_id}`}</td>
-                  <td style={{ padding: 10, borderBottom: "1px solid #f3f3f3" }}>{odontologosMap.get(t.odontologo_id) ?? `#${t.odontologo_id}`}</td>
-                  <td style={{ padding: 10, borderBottom: "1px solid #f3f3f3" }}>{consultoriosMap.get(t.consultorio_id) ?? `#${t.consultorio_id}`}</td>
-                  <td style={{ padding: 10, borderBottom: "1px solid #f3f3f3" }}>{t.estado}</td>
+                  <td style={{ padding: 10 }}>
+                    {t.hora_inicio.slice(0, 5)}
+                  </td>
+                  <td style={{ padding: 10 }}>
+                    {pacientesMap.get(t.paciente_id)}
+                  </td>
+                  <td style={{ padding: 10 }}>
+                    {odontologosMap.get(t.odontologo_id)}
+                  </td>
+                  <td style={{ padding: 10 }}>
+                    {consultoriosMap.get(t.consultorio_id)}
+                  </td>
+                  <td style={{ padding: 10 }}>
+                    <select
+                      value={t.estado}
+                      onChange={(e) =>
+                        cambiarEstado(t.id, e.target.value)
+                      }
+                    >
+                      <option value="reservado">Reservado</option>
+                      <option value="atendido">Atendido</option>
+                      <option value="cancelado">Cancelado</option>
+                      <option value="ausente">Ausente</option>
+                    </select>
+                  </td>
                 </tr>
               ))}
             </tbody>

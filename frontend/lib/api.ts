@@ -2,44 +2,43 @@ const API_BASE = "http://localhost:8000";
 
 function getToken() {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("token");
+
+  // Probamos varios nombres comunes (porque no sabemos cómo lo guarda tu login)
+  return (
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("accessToken") ||
+    localStorage.getItem("token") ||
+    localStorage.getItem("jwt") ||
+    localStorage.getItem("auth_token")
+  );
 }
 
 export async function apiFetch(path: string, options: RequestInit = {}) {
   const token = getToken();
 
   const headers = new Headers(options.headers || {});
+  if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
-
-  // Si mandamos JSON
-  if (options.body && !headers.get("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
 
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
-    cache: "no-store",
+    // IMPORTANTÍSIMO: si tu login usa cookie httpOnly, esto es obligatorio
+    credentials: "include",
   });
 
-  // si 401, limpiamos token y forzamos login
-  if (res.status === 401 && typeof window !== "undefined") {
-    localStorage.removeItem("token");
-    window.location.href = "/login";
-    return;
-  }
-
-  const text = await res.text();
-  let data: any = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
-  }
-
   if (!res.ok) {
-    throw new Error(`${options.method || "GET"} ${path} -> ${res.status} ${text}`);
+    let detail = "";
+    try {
+      const data = await res.json();
+      detail = data?.detail ? String(data.detail) : JSON.stringify(data);
+    } catch {
+      detail = await res.text();
+    }
+    throw new Error(detail || `HTTP ${res.status}`);
   }
 
-  return data;
+  if (res.status === 204) return null;
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 }

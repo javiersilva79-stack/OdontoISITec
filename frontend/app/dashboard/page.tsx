@@ -25,7 +25,7 @@ export default function Dashboard() {
     setError("");
     setLoading(true);
     try {
-      const r = await apiFetch("/dashboard/resumen");
+      const r = await apiFetch("/dashboard/resumen/");
       setData({
         citas_hoy: Number(r?.citas_hoy ?? 0),
         pacientes_total: Number(r?.pacientes_total ?? 0),

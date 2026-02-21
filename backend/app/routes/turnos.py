@@ -80,3 +80,26 @@ def obtener_turno(
     if not turno:
         raise HTTPException(status_code=404, detail="Turno no encontrado")
     return turno
+
+@router.put("/{turno_id}/estado", response_model=TurnoResponse)
+def cambiar_estado(
+    turno_id: int,
+    nuevo_estado: str,
+    db: Session = Depends(get_db),
+    _=Depends(require_role("admin", "odontologo", "recepcion")),
+):
+    turno = db.query(Turno).filter(Turno.id == turno_id).first()
+
+    if not turno:
+        raise HTTPException(status_code=404, detail="Turno no encontrado")
+
+    nuevo_estado = nuevo_estado.strip().lower()
+
+    if nuevo_estado not in ["reservado", "atendido", "cancelado", "ausente"]:
+        raise HTTPException(status_code=400, detail="Estado inválido")
+
+    turno.estado = nuevo_estado
+    db.commit()
+    db.refresh(turno)
+
+    return turno
