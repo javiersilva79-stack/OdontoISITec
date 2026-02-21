@@ -43,7 +43,8 @@ from app.routes.auth import router as auth_router
 from app.routes.pacientes import router as pacientes_router
 from app.routes.turnos import router as turnos_router
 from app.routes.agenda import router as agenda_router
-
+from app.routes.dashboard import router as dashboard_router
+app.include_router(dashboard_router)
 app.include_router(consultorios_router)
 app.include_router(usuarios_router)
 app.include_router(auth_router)

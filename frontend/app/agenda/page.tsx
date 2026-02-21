@@ -1,222 +1,254 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { apiFetch } from "@/lib/api";
 
-/* ===== Interfaces ===== */
+type Paciente = { id: number; nombre: string; apellido: string };
+type Usuario = { id: number; nombre: string; email: string; rol: string };
+type Consultorio = { id: number; nombre: string };
 
-interface Paciente {
+type Turno = {
   id: number;
-  nombre: string;
-  apellido: string;
-}
-
-interface Turno {
-  id: number;
-  fecha: string;
-  hora: string;
-  duracion_minutos: number;
-  paciente: Paciente;
-  odontologo_id: number;
   consultorio_id: number;
-}
+  paciente_id: number;
+  odontologo_id: number;
+  fecha: string;        // "YYYY-MM-DD"
+  hora_inicio: string;  // "HH:MM:SS"
+  duracion_min: number;
+  estado: string;
+};
 
-/* ===== Componente ===== */
+function hoyISO() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 export default function AgendaPage() {
-  const router = useRouter();
-
-  const [fecha, setFecha] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [fecha, setFecha] = useState(hoyISO());
   const [turnos, setTurnos] = useState<Turno[]>([]);
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [odontologos, setOdontologos] = useState<Usuario[]>([]);
+  const [consultorios, setConsultorios] = useState<Consultorio[]>([]);
+
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [mostrarForm, setMostrarForm] = useState(false);
-  const [hora, setHora] = useState("");
-  const [pacienteId, setPacienteId] = useState("");
+  // Form nuevo turno
+  const [consultorioId, setConsultorioId] = useState<number | "">("");
+  const [pacienteId, setPacienteId] = useState<number | "">("");
+  const [odontologoId, setOdontologoId] = useState<number | "">("");
+  const [horaInicio, setHoraInicio] = useState("09:00");
+  const [duracion, setDuracion] = useState(30);
+  const [saving, setSaving] = useState(false);
 
-  /* ===== Seguridad + carga inicial ===== */
+  const pacientesMap = useMemo(() => {
+    const m = new Map<number, string>();
+    pacientes.forEach((p) => m.set(p.id, `${p.apellido}, ${p.nombre}`));
+    return m;
+  }, [pacientes]);
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.push("/login");
-      return;
-    }
+  const odontologosMap = useMemo(() => {
+    const m = new Map<number, string>();
+    odontologos.forEach((u) => m.set(u.id, u.nombre));
+    return m;
+  }, [odontologos]);
 
-    cargarAgenda();
-    cargarPacientes();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fecha]);
+  const consultoriosMap = useMemo(() => {
+    const m = new Map<number, string>();
+    consultorios.forEach((c) => m.set(c.id, c.nombre));
+    return m;
+  }, [consultorios]);
 
-  /* ===== API Calls ===== */
-
-  const cargarAgenda = async () => {
-    setLoading(true);
+  async function cargarTodo() {
     setError("");
-
+    setLoading(true);
     try {
-      const token = localStorage.getItem("token");
+      const [t, p, u, c] = await Promise.all([
+        apiFetch(`/agenda?fecha=${fecha}`),
+        apiFetch("/pacientes"),
+        apiFetch("/usuarios"),
+        apiFetch("/consultorios"),
+      ]);
 
-      const res = await fetch(
-        `http://localhost:8000/agenda/diaria?fecha=${fecha}&odontologo_id=1&consultorio_id=1`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      setTurnos(Array.isArray(t) ? t : []);
+      setPacientes(Array.isArray(p) ? p : []);
+      const od = Array.isArray(u) ? u.filter((x: any) => x.rol === "odontologo" || x.rol === "admin") : [];
+      setOdontologos(od);
+      setConsultorios(Array.isArray(c) ? c : []);
 
-      if (!res.ok) {
-        throw new Error("Error al cargar la agenda");
-      }
-
-      const data = await res.json();
-      setTurnos(data);
-    } catch {
-      setError("No se pudo cargar la agenda");
+      // defaults si están vacíos
+      if (consultorioId === "" && Array.isArray(c) && c[0]?.id) setConsultorioId(c[0].id);
+      if (odontologoId === "" && Array.isArray(od) && od[0]?.id) setOdontologoId(od[0].id);
+      if (pacienteId === "" && Array.isArray(p) && p[0]?.id) setPacienteId(p[0].id);
+    } catch (e: any) {
+      setError(e?.message || "Error cargando agenda");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const cargarPacientes = async () => {
-    const token = localStorage.getItem("token");
+  useEffect(() => {
+    cargarTodo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fecha]);
 
-    const res = await fetch("http://localhost:8000/pacientes", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+  async function crearTurno(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
 
-    const data = await res.json();
-    setPacientes(data);
-  };
+    if (!consultorioId || !pacienteId || !odontologoId) {
+      setError("Falta seleccionar consultorio, paciente u odontólogo.");
+      return;
+    }
 
-  const crearTurno = async () => {
-    const token = localStorage.getItem("token");
+    setSaving(true);
+    try {
+      await apiFetch("/turnos", {
+        method: "POST",
+        body: JSON.stringify({
+          consultorio_id: consultorioId,
+          paciente_id: pacienteId,
+          odontologo_id: odontologoId,
+          fecha,
+          hora_inicio: `${horaInicio}:00`,
+          duracion_min: duracion,
+          estado: "reservado",
+        }),
+      });
 
-    await fetch("http://localhost:8000/turnos", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        fecha,
-        hora,
-        duracion_minutos: 30,
-        paciente_id: Number(pacienteId),
-        odontologo_id: 1,
-        consultorio_id: 1,
-      }),
-    });
-
-    setMostrarForm(false);
-    setHora("");
-    setPacienteId("");
-    cargarAgenda();
-  };
-
-  /* ===== Render ===== */
+      await cargarTodo();
+    } catch (e: any) {
+      setError(e?.message || "Error creando turno");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-10">
-      <h1 className="text-3xl font-bold mb-6">Agenda diaria</h1>
+    <div style={{ padding: 24, fontFamily: "sans-serif" }}>
+      <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 12 }}>Agenda</h1>
 
-      {/* Selector de fecha */}
-      <div className="mb-4">
-        <label className="block mb-1 font-medium">Fecha</label>
-        <input
-          type="date"
-          value={fecha}
-          onChange={(e) => setFecha(e.target.value)}
-          className="border p-2 rounded"
-        />
+      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
+        <label style={{ fontWeight: 700 }}>Fecha:</label>
+        <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+        <button
+          onClick={cargarTodo}
+          style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #ddd", background: "white", cursor: "pointer" }}
+        >
+          Recargar
+        </button>
       </div>
 
-      {/* Botón nuevo turno */}
-      <button
-        onClick={() => setMostrarForm(!mostrarForm)}
-        className="mb-6 bg-green-600 text-white px-4 py-2 rounded"
-      >
-        Nuevo turno
-      </button>
-
-      {/* Formulario nuevo turno */}
-      {mostrarForm && (
-        <div className="bg-white p-4 rounded shadow mb-6">
-          <h2 className="font-bold mb-3">Nuevo turno</h2>
-
-          <input
-            type="time"
-            value={hora}
-            onChange={(e) => setHora(e.target.value)}
-            className="border p-2 mr-2"
-            required
-          />
-
-          <select
-            value={pacienteId}
-            onChange={(e) => setPacienteId(e.target.value)}
-            className="border p-2 mr-2"
-            required
-          >
-            <option value="">Paciente</option>
-            {pacientes.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.apellido}, {p.nombre}
-              </option>
-            ))}
-          </select>
-
-          <button
-            onClick={crearTurno}
-            className="bg-blue-700 text-white px-4 py-2 rounded"
-          >
-            Guardar
-          </button>
+      {error && (
+        <div style={{ background: "#ffecec", color: "#b00020", padding: 12, borderRadius: 8, marginBottom: 16 }}>
+          {error}
         </div>
       )}
 
-      {/* Estados */}
-      {loading && <p>Cargando agenda...</p>}
-      {error && <p className="text-red-600">{error}</p>}
+      {/* Alta turno */}
+      <form onSubmit={crearTurno} style={{ background: "white", padding: 16, borderRadius: 12, marginBottom: 16 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 12 }}>Nuevo turno</h2>
 
-      {!loading && turnos.length === 0 && (
-        <p className="text-gray-500">No hay turnos para este día</p>
-      )}
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Consultorio</div>
+            <select value={consultorioId} onChange={(e) => setConsultorioId(Number(e.target.value))}>
+              {consultorios.map((c) => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
+            </select>
+          </div>
 
-      {/* Tabla agenda */}
-      {turnos.length > 0 && (
-        <table className="w-full bg-white rounded shadow">
-          <thead className="bg-blue-900 text-white">
-            <tr>
-              <th className="p-3 text-left">Hora</th>
-              <th className="p-3 text-left">Paciente</th>
-              <th className="p-3 text-left">Duración</th>
-            </tr>
-          </thead>
-          <tbody>
-            {turnos.map((turno) => (
-              <tr key={turno.id} className="border-b">
-                <td className="p-3">
-                  {turno.hora.slice(0, 5)}
-                </td>
-                <td className="p-3">
-                  {turno.paciente.apellido}, {turno.paciente.nombre}
-                </td>
-                <td className="p-3">
-                  {turno.duracion_minutos} min
-                </td>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Paciente</div>
+            <select value={pacienteId} onChange={(e) => setPacienteId(Number(e.target.value))}>
+              {pacientes.map((p) => (
+                <option key={p.id} value={p.id}>{p.apellido}, {p.nombre}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Odontólogo</div>
+            <select value={odontologoId} onChange={(e) => setOdontologoId(Number(e.target.value))}>
+              {odontologos.map((u) => (
+                <option key={u.id} value={u.id}>{u.nombre}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Hora</div>
+            <input type="time" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} />
+          </div>
+
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Duración (min)</div>
+            <input
+              type="number"
+              min={5}
+              step={5}
+              value={duracion}
+              onChange={(e) => setDuracion(Number(e.target.value))}
+              style={{ width: 90 }}
+            />
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={saving}
+          style={{
+            marginTop: 12,
+            padding: "10px 14px",
+            borderRadius: 10,
+            border: "none",
+            background: saving ? "#999" : "#1f4ed8",
+            color: "white",
+            fontWeight: 800,
+            cursor: saving ? "not-allowed" : "pointer",
+          }}
+        >
+          {saving ? "Guardando..." : "Crear turno"}
+        </button>
+      </form>
+
+      {/* Lista turnos */}
+      <div style={{ background: "white", padding: 16, borderRadius: 12 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 12 }}>Turnos del día</h2>
+
+        {loading ? (
+          <div>Cargando...</div>
+        ) : turnos.length === 0 ? (
+          <div>No hay turnos para esta fecha.</div>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #eee" }}>Hora</th>
+                <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #eee" }}>Paciente</th>
+                <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #eee" }}>Odontólogo</th>
+                <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #eee" }}>Consultorio</th>
+                <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #eee" }}>Estado</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+            </thead>
+            <tbody>
+              {turnos.map((t) => (
+                <tr key={t.id}>
+                  <td style={{ padding: 10, borderBottom: "1px solid #f3f3f3" }}>{t.hora_inicio.slice(0, 5)}</td>
+                  <td style={{ padding: 10, borderBottom: "1px solid #f3f3f3" }}>{pacientesMap.get(t.paciente_id) ?? `#${t.paciente_id}`}</td>
+                  <td style={{ padding: 10, borderBottom: "1px solid #f3f3f3" }}>{odontologosMap.get(t.odontologo_id) ?? `#${t.odontologo_id}`}</td>
+                  <td style={{ padding: 10, borderBottom: "1px solid #f3f3f3" }}>{consultoriosMap.get(t.consultorio_id) ?? `#${t.consultorio_id}`}</td>
+                  <td style={{ padding: 10, borderBottom: "1px solid #f3f3f3" }}>{t.estado}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }
