@@ -20,6 +20,7 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
+  console.log("apiFetch URL =>", `${API_BASE}${path}`);
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
