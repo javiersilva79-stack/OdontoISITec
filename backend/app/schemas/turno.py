@@ -1,36 +1,24 @@
 from pydantic import BaseModel
 from datetime import date, time
-from app.schemas.paciente import PacienteResponse
+from typing import Optional
 
-# =========================
-# Schemas para CREAR turno
-# =========================
 
 class TurnoBase(BaseModel):
-    fecha: date
-    hora: time
-    duracion_minutos: int = 30
+    consultorio_id: int
     paciente_id: int
     odontologo_id: int
+    fecha: date
+    hora_inicio: time
+    duracion_min: int
+    estado: Optional[str] = "reservado"
+
 
 class TurnoCreate(TurnoBase):
-    consultorio_id: int
+    pass
 
 
-# =========================
-# Schema para RESPUESTA
-# =========================
-
-class TurnoResponse(BaseModel):
+class TurnoResponse(TurnoBase):
     id: int
-    fecha: date
-    hora: time
-    duracion_minutos: int
-
-    paciente: PacienteResponse
-    odontologo_id: int
-    consultorio_id: int
 
     class Config:
         from_attributes = True
-
