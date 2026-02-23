@@ -26,6 +26,55 @@ function hoyISO() {
   return `${y}-${m}-${day}`;
 }
 
+function normalizarEstado(estado: string) {
+  return (estado || "").toLowerCase().trim();
+}
+
+function badgeStyle(estado: string): React.CSSProperties {
+  const e = normalizarEstado(estado);
+  switch (e) {
+    case "atendido":
+      return {
+        background: "#e8f7ee",
+        color: "#0b6b2b",
+        border: "1px solid #bfe8cc",
+      };
+    case "cancelado":
+      return {
+        background: "#fdecec",
+        color: "#9b1c1c",
+        border: "1px solid #f7c2c2",
+      };
+    case "reservado":
+      return {
+        background: "#fff6db",
+        color: "#7a5b00",
+        border: "1px solid #ffe4a3",
+      };
+    case "ausente":
+      return {
+        background: "#f1f3f5",
+        color: "#495057",
+        border: "1px solid #dee2e6",
+      };
+    default:
+      return {
+        background: "#e7f1ff",
+        color: "#0b3d91",
+        border: "1px solid #b6d4fe",
+      };
+  }
+}
+
+function duracionLabel(min: number) {
+  const m = Number(min) || 0;
+  if (m <= 0) return "-";
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return r ? `${h}h ${r}m` : `${h}h`;
+}
+
 export default function AgendaPage() {
   const [fecha, setFecha] = useState(hoyISO());
   const [turnos, setTurnos] = useState<Turno[]>([]);
@@ -43,6 +92,7 @@ export default function AgendaPage() {
   const [horaInicio, setHoraInicio] = useState("09:00");
   const [duracion, setDuracion] = useState(30);
   const [saving, setSaving] = useState(false);
+  const [filtroOdontologo, setFiltroOdontologo] = useState<number | "">("");
 
   const pacientesMap = useMemo(() => {
     const m = new Map<number, string>();
@@ -61,6 +111,16 @@ export default function AgendaPage() {
     consultorios.forEach((c) => m.set(c.id, c.nombre));
     return m;
   }, [consultorios]);
+
+  const turnosOrdenados = useMemo(() => {
+    return [...turnos]
+      .filter((t) =>
+        filtroOdontologo === ""
+          ? true
+          : t.odontologo_id === filtroOdontologo
+      )
+      .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
+  }, [turnos, filtroOdontologo]);
 
   async function cargarTodo() {
     setError("");
@@ -99,6 +159,12 @@ export default function AgendaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fecha]);
 
+  useEffect(() => {
+    if (filtroOdontologo !== "") {
+      setOdontologoId(filtroOdontologo);
+    }
+  }, [filtroOdontologo]);
+
   async function crearTurno(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -123,6 +189,10 @@ export default function AgendaPage() {
         }),
       });
 
+      // opcional: reset horario/duración
+      // setHoraInicio("09:00");
+      // setDuracion(30);
+
       await cargarTodo();
     } catch (e: any) {
       setError(e?.message || "Error creando turno");
@@ -131,7 +201,6 @@ export default function AgendaPage() {
     }
   }
 
-  // 👉 NUEVO: cambiar estado del turno
   async function cambiarEstado(id: number, nuevo_estado: string) {
     try {
       await apiFetch(`/turnos/${id}/estado?nuevo_estado=${nuevo_estado}`, {
@@ -176,8 +245,33 @@ export default function AgendaPage() {
         >
           Recargar
         </button>
-      </div>
 
+        
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <label style={{ fontWeight: 700 }}>Odontólogo:</label>
+          <select
+            value={filtroOdontologo === "" ? "" : String(filtroOdontologo)}
+            onChange={(e) =>
+              setFiltroOdontologo(
+                e.target.value === "" ? "" : Number(e.target.value)
+              )
+            }
+            style={{
+              padding: "6px 8px",
+              borderRadius: 8,
+              border: "1px solid #ddd",
+              minWidth: 200,
+            }}
+          >
+            <option value="">Todos</option>
+            {odontologos.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+        </div>
       {error && (
         <div
           style={{
@@ -193,7 +287,15 @@ export default function AgendaPage() {
       )}
 
       {/* Lista turnos */}
-      <div style={{ background: "white", padding: 16, borderRadius: 12 }}>
+      <div
+        style={{
+          background: "white",
+          padding: 16,
+          borderRadius: 12,
+          maxHeight: 420,
+          overflowY: "auto",
+        }}
+      >
         <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 12 }}>
           Turnos del día
         </h2>
@@ -203,48 +305,330 @@ export default function AgendaPage() {
         ) : turnos.length === 0 ? (
           <div>No hay turnos para esta fecha.</div>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <table
+            style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}
+          >
             <thead>
-              <tr>
-                <th style={{ padding: 10 }}>Hora</th>
-                <th style={{ padding: 10 }}>Paciente</th>
-                <th style={{ padding: 10 }}>Odontólogo</th>
-                <th style={{ padding: 10 }}>Consultorio</th>
-                <th style={{ padding: 10 }}>Estado</th>
+              <tr style={{ textAlign: "left" }}>
+                <th style={{ padding: 10, borderBottom: "1px solid #eee" }}>
+                  Hora
+                </th>
+                <th style={{ padding: 10, borderBottom: "1px solid #eee" }}>
+                  Paciente
+                </th>
+                <th style={{ padding: 10, borderBottom: "1px solid #eee" }}>
+                  Odontólogo
+                </th>
+                <th style={{ padding: 10, borderBottom: "1px solid #eee" }}>
+                  Consultorio
+                </th>
+                <th style={{ padding: 10, borderBottom: "1px solid #eee" }}>
+                  Duración
+                </th>
+                <th style={{ padding: 10, borderBottom: "1px solid #eee" }}>
+                  Estado
+                </th>
               </tr>
             </thead>
             <tbody>
-              {turnos.map((t) => (
-                <tr key={t.id}>
-                  <td style={{ padding: 10 }}>
-                    {t.hora_inicio.slice(0, 5)}
-                  </td>
-                  <td style={{ padding: 10 }}>
-                    {pacientesMap.get(t.paciente_id)}
-                  </td>
-                  <td style={{ padding: 10 }}>
-                    {odontologosMap.get(t.odontologo_id)}
-                  </td>
-                  <td style={{ padding: 10 }}>
-                    {consultoriosMap.get(t.consultorio_id)}
-                  </td>
-                  <td style={{ padding: 10 }}>
-                    <select
-                      value={t.estado}
-                      onChange={(e) =>
-                        cambiarEstado(t.id, e.target.value)
-                      }
+              {turnosOrdenados.map((t) => {
+                const estado = normalizarEstado(t.estado);
+                const bloqueado = estado === "atendido";
+                const durMin = Number(t.duracion_min) || 0;
+                const barraPct = Math.min(100, Math.max(8, (durMin / 60) * 100));
+
+                return (
+                  <tr key={t.id}>
+                    <td
+                      style={{
+                        padding: 10,
+                        borderBottom: "1px solid #f3f3f3",
+                        fontWeight: 700,
+                      }}
                     >
-                      <option value="reservado">Reservado</option>
-                      <option value="atendido">Atendido</option>
-                      <option value="cancelado">Cancelado</option>
-                      <option value="ausente">Ausente</option>
-                    </select>
-                  </td>
-                </tr>
-              ))}
+                      {t.hora_inicio.slice(0, 5)}
+                    </td>
+
+                    <td style={{ padding: 10, borderBottom: "1px solid #f3f3f3" }}>
+                      {pacientesMap.get(t.paciente_id) || "-"}
+                    </td>
+
+                    <td style={{ padding: 10, borderBottom: "1px solid #f3f3f3" }}>
+                      {odontologosMap.get(t.odontologo_id) || "-"}
+                    </td>
+
+                    <td style={{ padding: 10, borderBottom: "1px solid #f3f3f3" }}>
+                      {consultoriosMap.get(t.consultorio_id) || "-"}
+                    </td>
+
+                    <td
+                      style={{
+                        padding: 10,
+                        borderBottom: "1px solid #f3f3f3",
+                        minWidth: 160,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div
+                          style={{
+                            height: 8,
+                            width: 110,
+                            background: "#eee",
+                            borderRadius: 999,
+                          }}
+                        >
+                          <div
+                            style={{
+                              height: 8,
+                              width: `${barraPct}%`,
+                              background: "#555",
+                              borderRadius: 999,
+                            }}
+                          />
+                        </div>
+                        <span style={{ fontSize: 12, color: "#666" }}>
+                          {duracionLabel(durMin)}
+                        </span>
+                      </div>
+                    </td>
+
+                    <td style={{ padding: 10, borderBottom: "1px solid #f3f3f3" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <span
+                          style={{
+                            ...badgeStyle(t.estado),
+                            padding: "4px 10px",
+                            borderRadius: 999,
+                            fontSize: 12,
+                            fontWeight: 800,
+                            textTransform: "capitalize",
+                          }}
+                        >
+                          {t.estado}
+                        </span>
+
+                        <select
+                          value={t.estado}
+                          disabled={bloqueado}
+                          onChange={(e) => cambiarEstado(t.id, e.target.value)}
+                          style={{
+                            padding: "6px 8px",
+                            borderRadius: 8,
+                            border: "1px solid #ddd",
+                            background: bloqueado ? "#f7f7f7" : "white",
+                            cursor: bloqueado ? "not-allowed" : "pointer",
+                            opacity: bloqueado ? 0.6 : 1,
+                          }}
+                          title={
+                            bloqueado
+                              ? "No se puede cambiar el estado si está atendido"
+                              : "Cambiar estado"
+                          }
+                        >
+                          <option value="reservado">Reservado</option>
+                          <option value="atendido">Atendido</option>
+                          <option value="cancelado">Cancelado</option>
+                          <option value="ausente">Ausente</option>
+                        </select>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
+        )}
+      </div>
+
+      {/* ✅ Nuevo turno */}
+      <div
+        style={{
+          background: "white",
+          padding: 16,
+          borderRadius: 12,
+          marginTop: 16,
+        }}
+      >
+        <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 12 }}>
+          Nuevo turno
+        </h2>
+
+        <form
+          onSubmit={crearTurno}
+          style={{
+            display: "flex",
+            gap: 12,
+            flexWrap: "wrap",
+            alignItems: "end",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              minWidth: 240,
+            }}
+          >
+            <label style={{ fontWeight: 700 }}>Paciente</label>
+            <select
+              value={pacienteId === "" ? "" : String(pacienteId)}
+              onChange={(e) => setPacienteId(Number(e.target.value))}
+              style={{
+                padding: "8px 10px",
+                borderRadius: 8,
+                border: "1px solid #ddd",
+              }}
+            >
+              {pacientes.length === 0 ? (
+                <option value="">(Sin pacientes)</option>
+              ) : (
+                pacientes.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.apellido}, {p.nombre}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              minWidth: 220,
+            }}
+          >
+            <label style={{ fontWeight: 700 }}>Odontólogo</label>
+            <select
+              value={odontologoId === "" ? "" : String(odontologoId)}
+              onChange={(e) => setOdontologoId(Number(e.target.value))}
+              style={{
+                padding: "8px 10px",
+                borderRadius: 8,
+                border: "1px solid #ddd",
+              }}
+            >
+              {odontologos.length === 0 ? (
+                <option value="">(Sin odontólogos)</option>
+              ) : (
+                odontologos.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.nombre}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              minWidth: 220,
+            }}
+          >
+            <label style={{ fontWeight: 700 }}>Consultorio</label>
+            <select
+              value={consultorioId === "" ? "" : String(consultorioId)}
+              onChange={(e) => setConsultorioId(Number(e.target.value))}
+              style={{
+                padding: "8px 10px",
+                borderRadius: 8,
+                border: "1px solid #ddd",
+              }}
+            >
+              {consultorios.length === 0 ? (
+                <option value="">(Sin consultorios)</option>
+              ) : (
+                consultorios.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ fontWeight: 700 }}>Hora</label>
+            <input
+              type="time"
+              value={horaInicio}
+              onChange={(e) => setHoraInicio(e.target.value)}
+              style={{
+                padding: "8px 10px",
+                borderRadius: 8,
+                border: "1px solid #ddd",
+              }}
+            />
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              width: 140,
+            }}
+          >
+            <label style={{ fontWeight: 700 }}>Duración</label>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                type="number"
+                min={10}
+                step={10}
+                value={duracion}
+                onChange={(e) => setDuracion(Number(e.target.value))}
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  border: "1px solid #ddd",
+                  width: 90,
+                }}
+              />
+              <span style={{ fontSize: 12, color: "#666" }}>min</span>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={
+              saving ||
+              loading ||
+              pacientes.length === 0 ||
+              odontologos.length === 0 ||
+              consultorios.length === 0 ||
+              consultorioId === "" ||
+              pacienteId === "" ||
+              odontologoId === ""
+            }
+            style={{
+              padding: "10px 14px",
+              borderRadius: 10,
+              border: "1px solid #ddd",
+              background: saving ? "#f3f3f3" : "white",
+              cursor: saving ? "not-allowed" : "pointer",
+              fontWeight: 800,
+            }}
+          >
+            {saving ? "Guardando..." : "Crear turno"}
+          </button>
+        </form>
+
+        {(pacientes.length === 0 || odontologos.length === 0 || consultorios.length === 0) && (
+          <div style={{ marginTop: 10, fontSize: 12, color: "#666" }}>
+            Para crear turnos necesitás tener cargados: pacientes, odontólogos y consultorios.
+          </div>
         )}
       </div>
     </div>

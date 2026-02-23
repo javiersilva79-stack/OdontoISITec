@@ -9,6 +9,7 @@ from app.schemas.turno import TurnoCreate, TurnoResponse
 
 router = APIRouter(prefix="/turnos", tags=["Turnos"])
 
+ESTADOS_VALIDOS = {"reservado", "atendido", "cancelado", "ausente"}
 
 def _to_dt(fecha, hora):
     # fecha: date, hora: time
@@ -81,25 +82,31 @@ def obtener_turno(
         raise HTTPException(status_code=404, detail="Turno no encontrado")
     return turno
 
-@router.put("/{turno_id}/estado", response_model=TurnoResponse)
-def cambiar_estado(
+@router.put("/{turno_id}/estado")
+def actualizar_estado_turno(
     turno_id: int,
     nuevo_estado: str,
     db: Session = Depends(get_db),
     _=Depends(require_role("admin", "odontologo", "recepcion")),
 ):
+    nuevo_estado = (nuevo_estado or "").strip().lower()
+
+    if nuevo_estado not in ESTADOS_VALIDOS:
+        raise HTTPException(status_code=400, detail="Estado inválido.")
+
     turno = db.query(Turno).filter(Turno.id == turno_id).first()
-
     if not turno:
-        raise HTTPException(status_code=404, detail="Turno no encontrado")
+        raise HTTPException(status_code=404, detail="Turno no encontrado.")
 
-    nuevo_estado = nuevo_estado.strip().lower()
-
-    if nuevo_estado not in ["reservado", "atendido", "cancelado", "ausente"]:
-        raise HTTPException(status_code=400, detail="Estado inválido")
+    # 🔒 regla dura: si ya está atendido, no se toca
+    if (turno.estado or "").strip().lower() == "atendido":
+        raise HTTPException(
+            status_code=409,
+            detail="No se puede cambiar el estado de un turno que ya está ATENDIDO.",
+        )
 
     turno.estado = nuevo_estado
     db.commit()
     db.refresh(turno)
 
-    return turno
+    return {"ok": True, "id": turno.id, "estado": turno.estado}
