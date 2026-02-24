@@ -75,6 +75,9 @@ def actualizar_paciente(
         raise HTTPException(status_code=404, detail="Paciente no encontrado")
 
     payload = data.model_dump(exclude_unset=True)
+    if not payload:
+        return paciente
+    
     for k, v in payload.items():
         setattr(paciente, k, v)
 
@@ -90,8 +93,8 @@ def desactivar_paciente(
     _=Depends(require_role("admin", "odontologo", "recepcion"))
 ):
     paciente = db.query(Paciente).filter(Paciente.id == paciente_id).first()
-    if not paciente:
-        raise HTTPException(status_code=404, detail="Paciente no encontrado")
+    if not paciente.activo:
+        return {"ok": True, "paciente_id": paciente_id, "activo": False}
 
     paciente.activo = False
     db.commit()

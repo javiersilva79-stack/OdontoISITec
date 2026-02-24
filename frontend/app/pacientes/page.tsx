@@ -21,13 +21,27 @@ export default function PacientesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busqueda, setBusqueda] = useState("");
+  const [soloActivos, setSoloActivos] = useState(true);
+
+  // Para evitar pegarle al backend en cada tecla, esperamos un poquito
+  const [debouncedBusqueda, setDebouncedBusqueda] = useState(busqueda);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedBusqueda(busqueda), 300);
+    return () => clearTimeout(t);
+  }, [busqueda]);
 
   async function cargarPacientes() {
     setLoading(true);
     setError("");
 
     try {
-      const data = await apiFetch("/pacientes/");
+      const params = new URLSearchParams();
+      if (debouncedBusqueda.trim()) params.set("q", debouncedBusqueda.trim());
+      params.set("solo_activos", soloActivos ? "true" : "false");
+      params.set("limit", "200");
+      params.set("offset", "0");
+
+      const data = await apiFetch(`/pacientes/?${params.toString()}`);
       setPacientes(Array.isArray(data) ? data : []);
     } catch (e: any) {
       setError(e?.message || "Error cargando pacientes");
@@ -38,18 +52,35 @@ export default function PacientesPage() {
 
   useEffect(() => {
     cargarPacientes();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedBusqueda, soloActivos]);
 
-  const pacientesFiltrados = useMemo(() => {
-    const b = busqueda.toLowerCase().trim();
-    if (!b) return pacientes;
-
-    return pacientes.filter((p) =>
-      `${p.nombre} ${p.apellido} ${p.dni ?? ""}`
-        .toLowerCase()
-        .includes(b)
+  async function desactivarPaciente(id: number) {
+    const ok = window.confirm(
+      "¿Dar de baja este paciente?\n\n(No se borra: queda como Inactivo y se puede reactivar más adelante.)"
     );
-  }, [busqueda, pacientes]);
+    if (!ok) return;
+
+    try {
+      await apiFetch(`/pacientes/${id}`, { method: "DELETE" });
+      // Recargar lista
+      cargarPacientes();
+    } catch (e: any) {
+      window.alert(e?.message || "Error dando de baja al paciente");
+    }
+  }
+
+  // Si quisieras reactivar (si agregás endpoint en backend):
+  // async function reactivarPaciente(id: number) {
+  //   try {
+  //     await apiFetch(`/pacientes/${id}/reactivar`, { method: "POST" });
+  //     cargarPacientes();
+  //   } catch (e: any) {
+  //     window.alert(e?.message || "Error reactivando al paciente");
+  //   }
+  // }
+
+  const pacientesFiltrados = useMemo(() => pacientes, [pacientes]);
 
   return (
     <div style={{ padding: 24, fontFamily: "sans-serif" }}>
@@ -67,18 +98,29 @@ export default function PacientesPage() {
           gap: 12,
         }}
       >
-        <input
-          type="text"
-          placeholder="Buscar por nombre o DNI..."
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          style={{
-            padding: "8px 12px",
-            borderRadius: 8,
-            border: "1px solid #ddd",
-            minWidth: 250,
-          }}
-        />
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <input
+            type="text"
+            placeholder="Buscar por nombre, DNI o teléfono..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "1px solid #ddd",
+              minWidth: 280,
+            }}
+          />
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={soloActivos}
+              onChange={(e) => setSoloActivos(e.target.checked)}
+            />
+            <span style={{ fontWeight: 700, fontSize: 13 }}>Solo activos</span>
+          </label>
+        </div>
 
         <button
           onClick={() => router.push("/pacientes/nuevo")}
@@ -129,6 +171,7 @@ export default function PacientesPage() {
                 <th style={{ padding: 10 }}>Teléfono</th>
                 <th style={{ padding: 10 }}>Obra social</th>
                 <th style={{ padding: 10 }}>Estado</th>
+                <th style={{ padding: 10, width: 220 }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -136,18 +179,14 @@ export default function PacientesPage() {
                 <tr
                   key={p.id}
                   onClick={() => router.push(`/pacientes/${p.id}`)}
-                  style={{
-                    cursor: "pointer",
-                  }}
+                  style={{ cursor: "pointer" }}
                 >
                   <td style={{ padding: 10 }}>
                     {p.apellido}, {p.nombre}
                   </td>
                   <td style={{ padding: 10 }}>{p.dni || "-"}</td>
                   <td style={{ padding: 10 }}>{p.telefono || "-"}</td>
-                  <td style={{ padding: 10 }}>
-                    {p.obra_social || "-"}
-                  </td>
+                  <td style={{ padding: 10 }}>{p.obra_social || "-"}</td>
                   <td style={{ padding: 10 }}>
                     <span
                       style={{
@@ -155,16 +194,74 @@ export default function PacientesPage() {
                         borderRadius: 999,
                         fontSize: 12,
                         fontWeight: 700,
-                        background: p.activo
-                          ? "#e8f7ee"
-                          : "#fdecec",
-                        color: p.activo
-                          ? "#0b6b2b"
-                          : "#9b1c1c",
+                        background: p.activo ? "#e8f7ee" : "#fdecec",
+                        color: p.activo ? "#0b6b2b" : "#9b1c1c",
                       }}
                     >
                       {p.activo ? "Activo" : "Inactivo"}
                     </span>
+                  </td>
+
+                  <td style={{ padding: 10 }}>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/pacientes/${p.id}/editar`);
+                        }}
+                        style={{
+                          padding: "6px 10px",
+                          borderRadius: 10,
+                          border: "1px solid #ddd",
+                          background: "white",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Editar
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          desactivarPaciente(p.id);
+                        }}
+                        disabled={!p.activo}
+                        style={{
+                          padding: "6px 10px",
+                          borderRadius: 10,
+                          border: "1px solid #ddd",
+                          background: !p.activo ? "#f5f5f5" : "white",
+                          fontWeight: 700,
+                          cursor: !p.activo ? "not-allowed" : "pointer",
+                          opacity: !p.activo ? 0.7 : 1,
+                        }}
+                        title={!p.activo ? "Ya está inactivo" : "Dar de baja (inactivar)"}
+                      >
+                        Baja
+                      </button>
+
+                      {/* Si implementás reactivar en backend, descomentá:
+                      {!p.activo && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            reactivarPaciente(p.id);
+                          }}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 10,
+                            border: "1px solid #ddd",
+                            background: "white",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Reactivar
+                        </button>
+                      )}
+                      */}
+                    </div>
                   </td>
                 </tr>
               ))}
