@@ -11,7 +11,7 @@ class Turno(Base):
 
     consultorio_id = Column(Integer, ForeignKey("consultorios.id"), nullable=False)
     paciente_id = Column(Integer, ForeignKey("pacientes.id"), nullable=False)
-    odontologo_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    odontologo_id = Column(Integer, ForeignKey("odontologos.id"), nullable=False)
 
     fecha = Column(Date, nullable=False)
     hora_inicio = Column(Time, nullable=False)
@@ -20,5 +20,5 @@ class Turno(Base):
     estado = Column(String(20), nullable=False, default="reservado")
 
     paciente = relationship("Paciente")
-    odontologo = relationship("Usuario")
+    odontologo = relationship("Odontologo")
     consultorio = relationship("Consultorio")

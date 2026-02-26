@@ -18,6 +18,15 @@ type Turno = {
   estado: string;
 };
 
+type Odontologo = {
+  id: number;
+  nombre: string;
+  apellido: string;
+  matricula?: string;
+  especialidad?: string;
+  activo: boolean;
+};
+
 function hoyISO() {
   const d = new Date();
   const y = d.getFullYear();
@@ -79,7 +88,7 @@ export default function AgendaPage() {
   const [fecha, setFecha] = useState(hoyISO());
   const [turnos, setTurnos] = useState<Turno[]>([]);
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
-  const [odontologos, setOdontologos] = useState<Usuario[]>([]);
+  const [odontologos, setOdontologos] = useState<Odontologo[]>([]);
   const [consultorios, setConsultorios] = useState<Consultorio[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -129,22 +138,24 @@ export default function AgendaPage() {
       const [t, p, u, c] = await Promise.all([
         apiFetch(`/agenda/?fecha=${fecha}`),
         apiFetch("/pacientes/"),
-        apiFetch("/usuarios/"),
+        apiFetch("/odontologos?solo_activos=true"),
         apiFetch("/consultorios/"),
       ]);
 
+      
+      
+      console.log("ODONTOLOGOS:", u);
       setTurnos(Array.isArray(t) ? t : []);
       setPacientes(Array.isArray(p) ? p : []);
-      const od = Array.isArray(u)
-        ? u.filter((x: any) => x.rol === "odontologo" || x.rol === "admin")
-        : [];
-      setOdontologos(od);
+      setOdontologos(Array.isArray(u) ? u : []);
       setConsultorios(Array.isArray(c) ? c : []);
 
       if (consultorioId === "" && Array.isArray(c) && c[0]?.id)
         setConsultorioId(c[0].id);
-      if (odontologoId === "" && Array.isArray(od) && od[0]?.id)
-        setOdontologoId(od[0].id);
+
+      if (odontologoId === "" && Array.isArray(u) && u[0]?.id)
+        setOdontologoId(u[0].id);
+
       if (pacienteId === "" && Array.isArray(p) && p[0]?.id)
         setPacienteId(p[0].id);
     } catch (e: any) {

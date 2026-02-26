@@ -21,51 +21,101 @@ type FormState = {
 };
 
 const styles = {
-  page: { padding: 24, fontFamily: "sans-serif" as const },
-  headerRow: { display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" as const },
+  page: {
+    minHeight: "100vh",
+    background: "#f4f6f9",
+    padding: "40px 20px",
+    fontFamily: "sans-serif" as const,
+  },
+
+  headerRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 16,
+    marginBottom: 24,
+    flexWrap: "wrap" as const,
+  },
+
   backBtn: {
-    padding: "8px 12px",
-    borderRadius: 10,
-    border: "1px solid #ddd",
+    padding: "8px 14px",
+    borderRadius: 12,
+    border: "1px solid #e5e7eb",
     background: "white",
     cursor: "pointer",
     fontWeight: 700,
   },
-  card: { background: "white", padding: 16, borderRadius: 12, maxWidth: 860 },
-  form: { display: "grid", gap: 14 },
+
+  card: {
+    maxWidth: 820,
+    margin: "0 auto",
+    background: "white",
+    padding: 32,
+    borderRadius: 18,
+    boxShadow: "0 12px 30px rgba(0,0,0,0.08)",
+  },
+
+  form: {
+    display: "grid",
+    gap: 18,
+  },
+
   grid2: {
     display: "grid",
-    gap: 14,
+    gap: 18,
     gridTemplateColumns: "1fr",
   } as React.CSSProperties,
-  label: { fontSize: 12, fontWeight: 800, color: "#444", marginBottom: 6 },
+
+  label: {
+    fontSize: 12,
+    fontWeight: 800,
+    color: "#444",
+    marginBottom: 6,
+    letterSpacing: 0.3,
+  },
+
   input: {
     width: "100%",
-    padding: "10px 12px",
-    borderRadius: 10,
-    border: "1px solid #ddd",
+    padding: "12px 14px",
+    borderRadius: 12,
+    border: "1px solid #e5e7eb",
     outline: "none",
     background: "white",
     fontSize: 14,
+    transition: "all 0.2s ease",
   } as React.CSSProperties,
-  hint: { fontSize: 12, color: "#666", marginTop: 6 },
-  actions: { display: "flex", gap: 10, flexWrap: "wrap" as const, marginTop: 6 },
+
+  hint: {
+    fontSize: 12,
+    color: "#888",
+    marginTop: 4,
+  },
+
+  actions: {
+    display: "flex",
+    gap: 12,
+    flexWrap: "wrap" as const,
+    marginTop: 12,
+  },
+
   primaryBtn: {
-    padding: 10,
-    borderRadius: 10,
-    cursor: "pointer",
-    fontWeight: 800,
-    border: "1px solid #111",
-    background: "#111",
+    padding: "12px 18px",
+    borderRadius: 12,
+    border: "none",
+    background: "linear-gradient(135deg, #2563eb, #1e40af)",
     color: "white",
-  } as React.CSSProperties,
-  secondaryBtn: {
-    padding: 10,
-    borderRadius: 10,
-    cursor: "pointer",
     fontWeight: 800,
+    fontSize: 14,
+    cursor: "pointer",
+    transition: "all 0.2s ease",
+  } as React.CSSProperties,
+
+  secondaryBtn: {
+    padding: "12px 18px",
+    borderRadius: 12,
+    border: "1px solid #e5e7eb",
     background: "white",
-    border: "1px solid #ddd",
+    fontWeight: 700,
+    cursor: "pointer",
   } as React.CSSProperties,
 };
 
@@ -171,6 +221,7 @@ export default function EditarPacientePage() {
       });
 
       // ✅ Volver al listado (y se recarga solo)
+      sessionStorage.setItem("pacienteActualizado", "1");
       router.replace("/pacientes");
     } catch (e: any) {
       const msg =
@@ -210,7 +261,9 @@ export default function EditarPacientePage() {
         </button>
 
         <div>
-          <div style={{ fontSize: 22, fontWeight: 900 }}>Editar paciente</div>
+          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: -0.5 }}>
+            Editar paciente
+          </div>
           <div style={{ fontSize: 12, color: "#666" }}>ID #{id}</div>
         </div>
       </div>

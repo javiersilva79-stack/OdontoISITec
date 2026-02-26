@@ -1,8 +1,10 @@
 "use client";
 
+
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
+
 
 type Paciente = {
   id: number;
@@ -16,12 +18,16 @@ type Paciente = {
 
 export default function PacientesPage() {
   const router = useRouter();
+  
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [soloActivos, setSoloActivos] = useState(true);
+  
+  
 
   // Para evitar pegarle al backend en cada tecla, esperamos un poquito
   const [debouncedBusqueda, setDebouncedBusqueda] = useState(busqueda);
@@ -49,6 +55,33 @@ export default function PacientesPage() {
       setLoading(false);
     }
   }
+
+  async function cambiarEstado(id: number, activo: boolean) {
+    try {
+      await apiFetch(`/pacientes/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ activo: !activo }),
+      });
+
+      cargarPacientes(); // refresca lista
+    } catch (e: any) {
+      console.error("Error cambiando estado", e);
+      setError("No se pudo cambiar el estado del paciente");
+    }
+  }
+
+  useEffect(() => {
+    const flag = sessionStorage.getItem("pacienteActualizado");
+
+    if (flag === "1") {
+      setShowSuccess(true);
+      sessionStorage.removeItem("pacienteActualizado");
+
+      setTimeout(() => {
+        setShowSuccess(false);
+      }, 3000);
+    }
+  }, []);
 
   useEffect(() => {
     cargarPacientes();
@@ -151,6 +184,22 @@ export default function PacientesPage() {
         </div>
       )}
 
+      {showSuccess && (
+        <div
+          style={{
+            background: "#e8f7ee",
+            color: "#0b6b2b",
+            padding: 14,
+            borderRadius: 10,
+            marginBottom: 16,
+            fontWeight: 800,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+          }}
+        >
+          ✅ Paciente actualizado correctamente
+        </div>
+      )}
+
       <div style={{ background: "white", padding: 16, borderRadius: 12 }}>
         {loading ? (
           <div>Cargando...</div>
@@ -224,43 +273,23 @@ export default function PacientesPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          desactivarPaciente(p.id);
+                          cambiarEstado(p.id, p.activo);
                         }}
-                        disabled={!p.activo}
                         style={{
                           padding: "6px 10px",
                           borderRadius: 10,
-                          border: "1px solid #ddd",
-                          background: !p.activo ? "#f5f5f5" : "white",
+                          border: "none",
                           fontWeight: 700,
-                          cursor: !p.activo ? "not-allowed" : "pointer",
-                          opacity: !p.activo ? 0.7 : 1,
+                          cursor: "pointer",
+                          background: p.activo ? "#ef4444" : "#22c55e",
+                          color: "white",
                         }}
-                        title={!p.activo ? "Ya está inactivo" : "Dar de baja (inactivar)"}
+                        title={p.activo ? "Dar de baja" : "Reactivar paciente"}
                       >
-                        Baja
+                        {p.activo ? "Baja" : "Reactivar"}
                       </button>
 
-                      {/* Si implementás reactivar en backend, descomentá:
-                      {!p.activo && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            reactivarPaciente(p.id);
-                          }}
-                          style={{
-                            padding: "6px 10px",
-                            borderRadius: 10,
-                            border: "1px solid #ddd",
-                            background: "white",
-                            fontWeight: 700,
-                            cursor: "pointer",
-                          }}
-                        >
-                          Reactivar
-                        </button>
-                      )}
-                      */}
+                      
                     </div>
                   </td>
                 </tr>
