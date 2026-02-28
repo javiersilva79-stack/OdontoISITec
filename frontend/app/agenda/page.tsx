@@ -85,6 +85,7 @@ function duracionLabel(min: number) {
 }
 
 export default function AgendaPage() {
+  console.log("AGENDA NUEVA CARGADA");
   const [fecha, setFecha] = useState(hoyISO());
   const [turnos, setTurnos] = useState<Turno[]>([]);
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
@@ -223,8 +224,20 @@ export default function AgendaPage() {
     }
   }
 
+  async function finalizarAtencion(turno: Turno) {
+    try {
+      await apiFetch(`/turnos/${turno.id}/estado?nuevo_estado=finalizado`, {
+        method: "PUT",
+      });
+      await cargarTodo();
+    } catch (e: any) {
+      setError(e?.message || "Error finalizando atención");
+    }
+  }
+
   return (
     <div style={{ padding: 24, fontFamily: "sans-serif" }}>
+      <h1 style={{ color: "red" }}>PRUEBA AGENDA</h1>
       <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 12 }}>
         Agenda
       </h1>
@@ -343,6 +356,7 @@ export default function AgendaPage() {
             </thead>
             <tbody>
               {turnosOrdenados.map((t) => {
+                console.log("ESTADO REAL:", t.estado);
                 const estado = normalizarEstado(t.estado);
                 const bloqueado = estado === "atendido";
                 const durMin = Number(t.duracion_min) || 0;
@@ -425,29 +439,39 @@ export default function AgendaPage() {
                           {t.estado}
                         </span>
 
-                        <select
-                          value={t.estado}
-                          disabled={bloqueado}
-                          onChange={(e) => cambiarEstado(t.id, e.target.value)}
-                          style={{
-                            padding: "6px 8px",
-                            borderRadius: 8,
-                            border: "1px solid #ddd",
-                            background: bloqueado ? "#f7f7f7" : "white",
-                            cursor: bloqueado ? "not-allowed" : "pointer",
-                            opacity: bloqueado ? 0.6 : 1,
-                          }}
-                          title={
-                            bloqueado
-                              ? "No se puede cambiar el estado si está atendido"
-                              : "Cambiar estado"
-                          }
-                        >
-                          <option value="reservado">Reservado</option>
-                          <option value="atendido">Atendido</option>
-                          <option value="cancelado">Cancelado</option>
-                          <option value="ausente">Ausente</option>
-                        </select>
+                        {estado === "reservado" && (
+                          <button
+                            onClick={() => cambiarEstado(t.id, "atendido")}
+                            style={{
+                              padding: "6px 10px",
+                              borderRadius: 8,
+                              border: "1px solid #0b3d91",
+                              background: "#e7f1ff",
+                              cursor: "pointer",
+                              fontWeight: 700,
+                              fontSize: 12,
+                            }}
+                          >
+                            Iniciar
+                          </button>
+                        )}
+
+                        {estado === "en_atencion" && (
+                          <button
+                            onClick={() => finalizarAtencion(t)}
+                            style={{
+                              padding: "6px 10px",
+                              borderRadius: 8,
+                              border: "1px solid #0b6b2b",
+                              background: "#e8f7ee",
+                              cursor: "pointer",
+                              fontWeight: 700,
+                              fontSize: 12,
+                            }}
+                          >
+                            Finalizar
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

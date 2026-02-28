@@ -7,6 +7,12 @@ from app.core.roles import require_role
 from app.models.paciente import Paciente
 from app.schemas.paciente import PacienteCreate, PacienteUpdate, PacienteResponse
 
+from sqlalchemy import func
+from app.models.tratamiento_realizado import TratamientoRealizado
+from app.models.tratamiento_catalogo import TratamientoCatalogo
+from app.models.pago import Pago
+from app.schemas.paciente import PacienteResumenResponse
+
 router = APIRouter(prefix="/pacientes", tags=["Pacientes"])
 
 
@@ -62,6 +68,68 @@ def obtener_paciente(
         raise HTTPException(status_code=404, detail="Paciente no encontrado")
     return paciente
 
+@router.get("/{paciente_id}/resumen", response_model=PacienteResumenResponse)
+def resumen_paciente(
+    paciente_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(require_role("admin", "odontologo", "recepcion"))
+):
+    paciente = db.query(Paciente).filter(Paciente.id == paciente_id).first()
+    if not paciente:
+        raise HTTPException(status_code=404, detail="Paciente no encontrado")
+
+    # Subquery pagos por prestación
+    pagos_subq = (
+        db.query(
+            Pago.tratamiento_realizado_id,
+            func.coalesce(func.sum(Pago.monto), 0).label("total_pagado")
+        )
+        .group_by(Pago.tratamiento_realizado_id)
+        .subquery()
+    )
+
+    # Prestaciones con cálculo de deuda
+    prestaciones = (
+        db.query(
+            TratamientoRealizado.id,
+            TratamientoCatalogo.nombre.label("tratamiento"),
+            TratamientoRealizado.pieza_dental.label("pieza"),
+            TratamientoRealizado.estado,
+            TratamientoRealizado.precio,
+            TratamientoRealizado.descuento,
+            func.coalesce(pagos_subq.c.total_pagado, 0).label("total_pagado"),
+            (
+                func.coalesce(TratamientoRealizado.precio, 0)
+                - func.coalesce(TratamientoRealizado.descuento, 0)
+                - func.coalesce(pagos_subq.c.total_pagado, 0)
+            ).label("deuda")
+        )
+        .join(TratamientoCatalogo, TratamientoCatalogo.id == TratamientoRealizado.tratamiento_id)
+        .outerjoin(pagos_subq, pagos_subq.c.tratamiento_realizado_id == TratamientoRealizado.id)
+        .filter(TratamientoRealizado.paciente_id == paciente_id)
+        .all()
+    )
+
+    deuda_total = sum(p.deuda for p in prestaciones if p.deuda)
+
+    tiene_deuda = deuda_total > 0
+
+    pagos_recientes = (
+        db.query(Pago)
+        .join(TratamientoRealizado, TratamientoRealizado.id == Pago.tratamiento_realizado_id)
+        .filter(TratamientoRealizado.paciente_id == paciente_id)
+        .order_by(Pago.created_at.desc())
+        .limit(5)
+        .all()
+    )
+
+    return {
+        "paciente": paciente,
+        "deuda_total": deuda_total,
+        "tiene_deuda": tiene_deuda,
+        "prestaciones_activas": prestaciones,
+        "pagos_recientes": pagos_recientes
+    }
 
 @router.put("/{paciente_id}", response_model=PacienteResponse)
 def actualizar_paciente(

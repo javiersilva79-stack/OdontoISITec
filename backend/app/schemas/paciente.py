@@ -75,3 +75,39 @@ class PacienteResponse(PacienteBase):
     activo: bool
     created_at: datetime
     updated_at: datetime
+    
+from pydantic import BaseModel
+from datetime import date
+from typing import List
+
+
+class PrestacionResumen(BaseModel):
+    id: int
+    tratamiento: str
+    pieza: str | None
+    estado: str
+    precio: float | None
+    descuento: float | None
+    total_pagado: float
+    deuda: float
+
+    class Config:
+        from_attributes = True
+
+
+class PagoResumen(BaseModel):
+    id: int
+    monto: float
+    medio_pago: str
+    fecha_pago: date | None
+
+    class Config:
+        from_attributes = True
+
+
+class PacienteResumenResponse(BaseModel):
+    paciente: PacienteResponse
+    deuda_total: float
+    tiene_deuda: bool
+    prestaciones_activas: List[PrestacionResumen]
+    pagos_recientes: List[PagoResumen]

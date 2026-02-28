@@ -8,20 +8,27 @@ class TratamientoEstado(str, enum.Enum):
     realizado = "realizado"
     cancelado = "cancelado"
 
+from datetime import date
+from sqlalchemy import Column, Integer, String, ForeignKey, Numeric, Date, Text, DateTime, Enum
+from sqlalchemy.sql import func
+
 class TratamientoRealizado(Base):
     __tablename__ = "tratamientos_realizados"
 
     id = Column(Integer, primary_key=True, index=True)
-    consultorio_id = Column(Integer, ForeignKey("consultorios.id"), nullable=False, index=True)
+    consultorio_id = Column(Integer, ForeignKey("consultorios.id"), nullable=False)
+    paciente_id = Column(Integer, ForeignKey("pacientes.id"), nullable=False)
+    odontologo_id = Column(Integer, ForeignKey("odontologos.id"), nullable=False)
+    turno_id = Column(Integer, ForeignKey("turnos.id"))
+    tratamiento_id = Column(Integer, ForeignKey("tratamientos_catalogo.id"), nullable=False)
 
-    paciente_id = Column(Integer, ForeignKey("pacientes.id"), nullable=False, index=True)
-    odontologo_id = Column(Integer, ForeignKey("odontologos.id"), nullable=False, index=True)
-    turno_id = Column(Integer, ForeignKey("turnos.id"), nullable=True, index=True)
+    pieza_dental = Column(String(10))
+    precio = Column(Numeric(12,2))
+    estado = Column(Enum(TratamientoEstado), default=TratamientoEstado.pendiente)
 
-    tratamiento_id = Column(Integer, ForeignKey("tratamientos_catalogo.id"), nullable=False, index=True)
-    pieza_dental = Column(String(10), nullable=True)
+    fecha_inicio = Column(Date, default=date.today)
+    fecha_finalizacion = Column(Date)
+    observaciones = Column(Text)
+    descuento = Column(Numeric(12,2), default=0)
 
-    precio = Column(Numeric(12, 2), nullable=True)
-    estado = Column(Enum(TratamientoEstado, name="tratamiento_estado"), nullable=False, server_default="pendiente")
-
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

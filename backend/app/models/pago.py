@@ -17,14 +17,17 @@ class Pago(Base):
     __tablename__ = "pagos"
 
     id = Column(Integer, primary_key=True, index=True)
-    consultorio_id = Column(Integer, ForeignKey("consultorios.id"), nullable=False, index=True)
+    consultorio_id = Column(Integer, ForeignKey("consultorios.id"), nullable=False)
 
-    paciente_id = Column(Integer, ForeignKey("pacientes.id"), nullable=False, index=True)
-    turno_id = Column(Integer, ForeignKey("turnos.id"), nullable=True, index=True)
+    tratamiento_realizado_id = Column(
+        Integer,
+        ForeignKey("tratamientos_realizados.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
 
-    monto = Column(Numeric(12, 2), nullable=False)
-    medio_pago = Column(Enum(MedioPago, name="medio_pago"), nullable=False)
-    estado = Column(Enum(PagoEstado, name="pago_estado"), nullable=False, server_default="pagado")
-
-    fecha_pago = Column(Date, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    monto = Column(Numeric(12,2), nullable=False)
+    medio_pago = Column(Enum(MedioPago), nullable=False)
+    estado = Column(Enum(PagoEstado), default=PagoEstado.pagado, nullable=False)
+    fecha_pago = Column(Date)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
