@@ -9,8 +9,8 @@ from app.schemas.turno import TurnoCreate, TurnoResponse
 
 router = APIRouter(prefix="/turnos", tags=["Turnos"])
 
-ESTADOS_VALIDOS = {"reservado", "atendido", "cancelado", "ausente"}
 
+ESTADOS_VALIDOS = {"reservado", "en_atencion", "atendido", "cancelado", "ausente"}
 def _to_dt(fecha, hora):
     # fecha: date, hora: time
     return datetime.combine(fecha, hora)

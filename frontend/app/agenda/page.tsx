@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { useRouter } from "next/navigation";
 
 type Paciente = { id: number; nombre: string; apellido: string };
 type Usuario = { id: number; nombre: string; email: string; rol: string };
@@ -85,6 +86,7 @@ function duracionLabel(min: number) {
 }
 
 export default function AgendaPage() {
+  const router = useRouter();
   console.log("AGENDA NUEVA CARGADA");
   const [fecha, setFecha] = useState(hoyISO());
   const [turnos, setTurnos] = useState<Turno[]>([]);
@@ -218,15 +220,20 @@ export default function AgendaPage() {
       await apiFetch(`/turnos/${id}/estado?nuevo_estado=${nuevo_estado}`, {
         method: "PUT",
       });
-      await cargarTodo();
+
+      await cargarTodo();   // refresca agenda
+
+      if (nuevo_estado === "en_atencion") {
+        router.push(`/turnos/${id}/atencion`);
+      }
+
     } catch (e: any) {
       setError(e?.message || "Error cambiando estado");
     }
   }
-
   async function finalizarAtencion(turno: Turno) {
     try {
-      await apiFetch(`/turnos/${turno.id}/estado?nuevo_estado=finalizado`, {
+      await apiFetch(`/turnos/${turno.id}/estado?nuevo_estado=atendido`, {
         method: "PUT",
       });
       await cargarTodo();
@@ -237,7 +244,7 @@ export default function AgendaPage() {
 
   return (
     <div style={{ padding: 24, fontFamily: "sans-serif" }}>
-      <h1 style={{ color: "red" }}>PRUEBA AGENDA</h1>
+     
       <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 12 }}>
         Agenda
       </h1>
@@ -441,7 +448,7 @@ export default function AgendaPage() {
 
                         {estado === "reservado" && (
                           <button
-                            onClick={() => cambiarEstado(t.id, "atendido")}
+                            onClick={() => cambiarEstado(t.id, "en_atencion")}
                             style={{
                               padding: "6px 10px",
                               borderRadius: 8,

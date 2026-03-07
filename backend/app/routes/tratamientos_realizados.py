@@ -30,7 +30,7 @@ def crear_tratamientos_lote(
             precio=item.precio,
             descuento=item.descuento,
             observaciones=item.observaciones,
-            estado=TratamientoEstado.realizado
+            estado=TratamientoEstado.pendiente
         )
         db.add(tr)
         nuevos.append(tr)
