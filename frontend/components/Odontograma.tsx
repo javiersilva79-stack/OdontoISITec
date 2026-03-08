@@ -1,7 +1,7 @@
 "use client";
 
 type Props = {
-  onSelect: (pieza: string) => void;
+  onSelect: (pieza: string, cara: string) => void;
   estados?: Record<string, string>;
 };
 
@@ -16,13 +16,85 @@ function colorEstado(estado?: string) {
   switch (estado) {
     case "pendiente":
       return "#ffe082";
-    case "en_proceso":
-      return "#ffcc80";
     case "realizado":
       return "#c8e6c9";
+    case "en_proceso":
+      return "#ffcc80";
     default:
-      return "#f9f9f9";
+      return "#ffffff";
   }
+}
+
+function Diente({ pieza, onSelect, estados }: any) {
+  return (
+    <svg width="60" height="60" viewBox="0 0 100 100">
+
+      {/* Mesial */}
+      <rect
+        x="35"
+        y="0"
+        width="30"
+        height="30"
+        fill={colorEstado(estados[`${pieza}-mesial`])}
+        stroke="#333"
+        onClick={() => onSelect(pieza, "mesial")}
+      />
+
+      {/* Vestibular */}
+      <rect
+        x="0"
+        y="35"
+        width="30"
+        height="30"
+        fill={colorEstado(estados[`${pieza}-vestibular`])}
+        stroke="#333"
+        onClick={() => onSelect(pieza, "vestibular")}
+      />
+
+      {/* Oclusal */}
+      <rect
+        x="35"
+        y="35"
+        width="30"
+        height="30"
+        fill={colorEstado(estados[`${pieza}-oclusal`])}
+        stroke="#333"
+        onClick={() => onSelect(pieza, "oclusal")}
+      />
+
+      {/* Lingual */}
+      <rect
+        x="70"
+        y="35"
+        width="30"
+        height="30"
+        fill={colorEstado(estados[`${pieza}-lingual`])}
+        stroke="#333"
+        onClick={() => onSelect(pieza, "lingual")}
+      />
+
+      {/* Distal */}
+      <rect
+        x="35"
+        y="70"
+        width="30"
+        height="30"
+        fill={colorEstado(estados[`${pieza}-distal`])}
+        stroke="#333"
+        onClick={() => onSelect(pieza, "distal")}
+      />
+
+      <text
+        x="50"
+        y="55"
+        fontSize="14"
+        textAnchor="middle"
+        fill="#000"
+      >
+        {pieza}
+      </text>
+    </svg>
+  );
 }
 
 export default function Odontograma({ onSelect, estados = {} }: Props) {
@@ -33,29 +105,17 @@ export default function Odontograma({ onSelect, estados = {} }: Props) {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(8, 40px)",
-          gap: 8,
+          gridTemplateColumns: "repeat(8, 70px)",
+          gap: 10
         }}
       >
         {piezas.map((p) => (
-          <div
+          <Diente
             key={p}
-            onClick={() => onSelect(p)}
-            style={{
-              width: 40,
-              height: 40,
-              border: "1px solid #999",
-              borderRadius: 6,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              background: colorEstado(estados[p]),
-              fontWeight: 600,
-            }}
-          >
-            {p}
-          </div>
+            pieza={p}
+            estados={estados}
+            onSelect={onSelect}
+          />
         ))}
       </div>
     </div>

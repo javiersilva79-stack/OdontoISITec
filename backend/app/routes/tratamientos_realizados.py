@@ -38,3 +38,38 @@ def crear_tratamientos_lote(
     db.commit()
 
     return {"ok": True, "cantidad": len(nuevos)}
+
+
+# 👇 ESTE ES EL ENDPOINT NUEVO
+@router.get("/")
+def listar_tratamientos(
+    turno_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(require_role("admin", "odontologo"))
+):
+    return (
+        db.query(TratamientoRealizado)
+        .filter(TratamientoRealizado.turno_id == turno_id)
+        .all()
+    )
+    
+@router.put("/{tratamiento_id}/estado")
+def cambiar_estado_tratamiento(
+    tratamiento_id: int,
+    estado: str,
+    db: Session = Depends(get_db),
+    _=Depends(require_role("admin", "odontologo"))
+):
+    tratamiento = db.query(TratamientoRealizado).filter(
+        TratamientoRealizado.id == tratamiento_id
+    ).first()
+
+    if not tratamiento:
+        raise HTTPException(status_code=404, detail="Tratamiento no encontrado")
+
+    tratamiento.estado = estado
+
+    db.commit()
+    db.refresh(tratamiento)
+
+    return tratamiento

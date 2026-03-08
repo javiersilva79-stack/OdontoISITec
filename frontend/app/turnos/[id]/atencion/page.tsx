@@ -24,9 +24,15 @@ export default function AtencionTurnoPage() {
   const [pieza, setPieza] = useState("");
   const [tratamientoId, setTratamientoId] = useState("");
   const [precio, setPrecio] = useState("");
+  const [turno, setTurno] = useState<any>(null);
 
-  function seleccionarPieza(p: string) {
-    setPieza(p);
+  function seleccionarPieza(p: string, cara: string) {
+    setPieza(`${p}-${cara}`);
+  }
+
+  async function cargarTurno() {
+    const data = await apiFetch(`/turnos/${turnoId}`);
+    setTurno(data);
   }
 
   async function cargarTratamientos() {
@@ -40,54 +46,72 @@ export default function AtencionTurnoPage() {
   }
 
   useEffect(() => {
+    cargarTurno();
     cargarTratamientos();
     cargarCatalogo();
   }, []);
 
   async function agregarTratamiento() {
     try {
-        if (!pieza || !tratamientoId || !precio) {
+
+      if (!pieza || !tratamientoId || !precio) {
         alert("Complete todos los campos");
         return;
-        }
+      }
 
-        await apiFetch("/tratamientos_realizados/lote", {
+      // obtener turno actualizado
+      const turnoData = await apiFetch(`/turnos/${turnoId}`);
+
+      await apiFetch("/tratamientos_realizados/lote", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({
-            turno_id: Number(turnoId),
-            tratamientos: [
+          turno_id: Number(turnoId),
+          paciente_id: turnoData.paciente_id,
+          odontologo_id: turnoData.odontologo_id,
+          consultorio_id: turnoData.consultorio_id,
+          tratamientos: [
             {
-                tratamiento_id: Number(tratamientoId),
-                pieza_dental: pieza,
-                precio: Number(precio),
-                descuento: 0,
-                observaciones: ""
+              tratamiento_id: Number(tratamientoId),
+              pieza_dental: pieza,
+              precio: Number(precio),
+              descuento: 0,
+              observaciones: ""
             }
-            ]
-        }),
-        });
+          ]
+        })
+      });
 
-        // limpiar formulario
-        setPieza("");
-        setTratamientoId("");
-        setPrecio("");
+      setPieza("");
+      setTratamientoId("");
+      setPrecio("");
 
-        // recargar tratamientos
-        await cargarTratamientos();
+      await cargarTratamientos();
 
     } catch (e) {
-        console.error(e);
-        alert("Error agregando tratamiento");
+      console.error(e);
+      alert("Error agregando tratamiento");
     }
-    }
+  }
     const estadosPiezas: Record<string, string> = {};
 
     tratamientos.forEach((t) => {
-        if (t.pieza_dental) {
-            estadosPiezas[t.pieza_dental] = t.estado;
-        }
+      if (t.pieza_dental) {
+        estadosPiezas[t.pieza_dental] = t.estado;
+      }
     });
-  return (
+  
+    async function finalizarTratamiento(id: number) {
+    await apiFetch(`/tratamientos_realizados/${id}/estado?estado=realizado`, {
+      method: "PUT"
+    });
+
+    await cargarTratamientos();
+  }
+
+    return (
     <div style={{ padding: 30 }}>
 
       <h1>Atención del Turno</h1>
@@ -101,6 +125,7 @@ export default function AtencionTurnoPage() {
             <th>Tratamiento</th>
             <th>Precio</th>
             <th>Estado</th>
+            <th>Acción</th>
           </tr>
         </thead>
 
@@ -111,6 +136,22 @@ export default function AtencionTurnoPage() {
               <td>{t.tratamiento?.nombre}</td>
               <td>${t.precio}</td>
               <td>{t.estado}</td>
+              <td>
+                {t.estado !== "realizado" && (
+                  <button
+                    onClick={() => finalizarTratamiento(t.id)}
+                    style={{
+                      padding: "4px 8px",
+                      borderRadius: 6,
+                      border: "1px solid #0b6b2b",
+                      background: "#e8f7ee",
+                      cursor: "pointer"
+                    }}
+                  >
+                    Finalizar
+                  </button>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -120,7 +161,7 @@ export default function AtencionTurnoPage() {
         onSelect={seleccionarPieza}
         estados={estadosPiezas}
       />
-
+      
       <h2 style={{ marginTop: 30 }}>Agregar tratamiento</h2>
 
       <div style={{ display: "flex", gap: 10 }}>
