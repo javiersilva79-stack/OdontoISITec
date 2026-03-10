@@ -4,19 +4,22 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import Odontograma from "@/components/Odontograma";
+import { useRouter } from "next/navigation";
 
 type Tratamiento = {
   id: number;
   pieza_dental: string;
   precio: number;
   estado: string;
-  tratamiento: {
+  tratamiento_id: number;
+  tratamiento?: {
     nombre: string;
   };
 };
 
 export default function AtencionTurnoPage() {
   const params = useParams();
+  const router = useRouter();
   const turnoId = params.id;
 
   const [tratamientos, setTratamientos] = useState<Tratamiento[]>([]);
@@ -111,32 +114,66 @@ export default function AtencionTurnoPage() {
     await cargarTratamientos();
   }
 
+    
     return (
     <div style={{ padding: 30 }}>
+      
+      <button
+        onClick={() => router.back()}
+        style={{
+          marginBottom: 20,
+          padding: "6px 12px",
+          borderRadius: 6,
+          border: "1px solid #ccc",
+          background: "#f5f5f5",
+          cursor: "pointer"
+        }}
+      >
+        ← Volver
+      </button>
 
       <h1>Atención del Turno</h1>
 
       <h2>Tratamientos</h2>
 
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <table
+        style={{
+          width: "100%",
+          borderCollapse: "collapse",
+          marginBottom: 20,
+          border: "1px solid #ddd"
+        }}
+      >
         <thead>
           <tr>
-            <th>Pieza</th>
-            <th>Tratamiento</th>
-            <th>Precio</th>
-            <th>Estado</th>
-            <th>Acción</th>
+            <th style={{ border: "1px solid #ddd", padding: 8 }}>Pieza</th>
+            <th style={{ border: "1px solid #ddd", padding: 8 }}>Tratamiento</th>
+            <th style={{ border: "1px solid #ddd", padding: 8 }}>Precio</th>
+            <th style={{ border: "1px solid #ddd", padding: 8 }}>Estado</th>
+            <th style={{ border: "1px solid #ddd", padding: 8 }}>Acción</th>
           </tr>
         </thead>
 
         <tbody>
           {tratamientos.map((t) => (
             <tr key={t.id}>
-              <td>{t.pieza_dental}</td>
-              <td>{t.tratamiento?.nombre}</td>
-              <td>${t.precio}</td>
-              <td>{t.estado}</td>
-              <td>
+              <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                {t.pieza_dental}
+              </td>
+
+              <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                {t.tratamiento?.nombre || catalogo.find(c => c.id === t.tratamiento_id)?.nombre}
+              </td>
+
+              <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                ${t.precio}
+              </td>
+
+              <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                {t.estado}
+              </td>
+
+              <td style={{ border: "1px solid #ddd", padding: 8 }}>
                 {t.estado !== "realizado" && (
                   <button
                     onClick={() => finalizarTratamiento(t.id)}
@@ -155,48 +192,89 @@ export default function AtencionTurnoPage() {
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+
+     
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+                marginBottom: 25,
+                padding: 12,
+                border: "1px solid #ddd",
+                borderRadius: 8,
+                background: "#fafafa",
+                width: "fit-content"
+              }}
+            >
+
+              <input
+                placeholder="pieza"
+                value={pieza}
+                readOnly
+                style={{
+                  padding: 8,
+                  border: "1px solid #ccc",
+                  borderRadius: 6,
+                  width: 120
+                }}
+              />
+
+              <select
+                value={tratamientoId}
+                onChange={(e) => setTratamientoId(e.target.value)}
+                style={{
+                  padding: 8,
+                  border: "1px solid #ccc",
+                  borderRadius: 6
+                }}
+              >
+                <option value="">Tratamiento</option>
+
+                {catalogo.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nombre}
+                  </option>
+                ))}
+
+              </select>
+
+              <input
+                placeholder="precio"
+                value={precio}
+                onChange={(e) => setPrecio(e.target.value)}
+                style={{
+                  padding: 8,
+                  border: "1px solid #ccc",
+                  borderRadius: 6,
+                  width: 120
+                }}
+              />
+
+              <button
+                onClick={agregarTratamiento}
+                style={{
+                  padding: "8px 18px",
+                  borderRadius: 6,
+                  border: "none",
+                  background: "#0b6b2b",
+                  color: "white",
+                  fontWeight: 600,
+                  cursor: "pointer"
+                }}
+              >
+                Agregar
+              </button>
+
+            </div>
 
       <Odontograma
         onSelect={seleccionarPieza}
         estados={estadosPiezas}
       />
       
-      <h2 style={{ marginTop: 30 }}>Agregar tratamiento</h2>
-
-      <div style={{ display: "flex", gap: 10 }}>
-
-        <input
-          placeholder="pieza"
-          value={pieza}
-          onChange={(e) => setPieza(e.target.value)}
-        />
-
-        <select
-          value={tratamientoId}
-          onChange={(e) => setTratamientoId(e.target.value)}
-        >
-          <option value="">Tratamiento</option>
-
-          {catalogo.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.nombre}
-            </option>
-          ))}
-
-        </select>
-
-        <input
-          placeholder="precio"
-          value={precio}
-          onChange={(e) => setPrecio(e.target.value)}
-        />
-
-        <button onClick={agregarTratamiento}>
-          Agregar
-        </button>
-
-      </div>
+      
 
     </div>
   );

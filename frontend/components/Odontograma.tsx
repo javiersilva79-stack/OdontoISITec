@@ -27,28 +27,28 @@ function colorEstado(estado?: string) {
 
 function Diente({ pieza, onSelect, estados }: any) {
   return (
-    <svg width="60" height="60" viewBox="0 0 100 100">
+    <svg width="60" height="70" viewBox="0 0 100 110">
 
-      {/* Mesial */}
+      {/* Vestibular */}
       <rect
         x="35"
         y="0"
         width="30"
         height="30"
-        fill={colorEstado(estados[`${pieza}-mesial`])}
+        fill={colorEstado(estados[`${pieza}-vestibular`])}
         stroke="#333"
-        onClick={() => onSelect(pieza, "mesial")}
+        onClick={() => onSelect(pieza, "vestibular")}
       />
 
-      {/* Vestibular */}
+      {/* Mesial */}
       <rect
         x="0"
         y="35"
         width="30"
         height="30"
-        fill={colorEstado(estados[`${pieza}-vestibular`])}
+        fill={colorEstado(estados[`${pieza}-mesial`])}
         stroke="#333"
-        onClick={() => onSelect(pieza, "vestibular")}
+        onClick={() => onSelect(pieza, "mesial")}
       />
 
       {/* Oclusal */}
@@ -62,21 +62,10 @@ function Diente({ pieza, onSelect, estados }: any) {
         onClick={() => onSelect(pieza, "oclusal")}
       />
 
-      {/* Lingual */}
+      {/* Distal */}
       <rect
         x="70"
         y="35"
-        width="30"
-        height="30"
-        fill={colorEstado(estados[`${pieza}-lingual`])}
-        stroke="#333"
-        onClick={() => onSelect(pieza, "lingual")}
-      />
-
-      {/* Distal */}
-      <rect
-        x="35"
-        y="70"
         width="30"
         height="30"
         fill={colorEstado(estados[`${pieza}-distal`])}
@@ -84,15 +73,29 @@ function Diente({ pieza, onSelect, estados }: any) {
         onClick={() => onSelect(pieza, "distal")}
       />
 
+      {/* Lingual */}
+      <rect
+        x="35"
+        y="70"
+        width="30"
+        height="30"
+        fill={colorEstado(estados[`${pieza}-lingual`])}
+        stroke="#333"
+        onClick={() => onSelect(pieza, "lingual")}
+      />
+
+      {/* Número de pieza */}
       <text
         x="50"
-        y="55"
+        y="108"
         fontSize="14"
         textAnchor="middle"
         fill="#000"
+        fontWeight="bold"
       >
         {pieza}
       </text>
+
     </svg>
   );
 }
@@ -100,13 +103,16 @@ function Diente({ pieza, onSelect, estados }: any) {
 export default function Odontograma({ onSelect, estados = {} }: Props) {
   return (
     <div style={{ marginBottom: 30 }}>
-      <h2>Odontograma</h2>
+
+      <h2 style={{ marginBottom: 10 }}>Odontograma</h2>
 
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(8, 70px)",
-          gap: 10
+          gap: 12,
+          justifyContent: "start",
+          alignItems: "center"
         }}
       >
         {piezas.map((p) => (
@@ -118,6 +124,7 @@ export default function Odontograma({ onSelect, estados = {} }: Props) {
           />
         ))}
       </div>
+
     </div>
   );
 }
