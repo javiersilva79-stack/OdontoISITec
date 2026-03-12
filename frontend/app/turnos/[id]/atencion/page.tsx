@@ -39,8 +39,9 @@ export default function AtencionTurnoPage() {
   }
 
   async function cargarTratamientos() {
-    const data = await apiFetch(`/tratamientos_realizados?turno_id=${turnoId}`);
+    const data = await apiFetch(`/tratamientos_realizados/turno/${turnoId}`);
     setTratamientos(data);
+    return data; // ← IMPORTANTE
   }
 
   async function cargarCatalogo() {
@@ -107,19 +108,67 @@ export default function AtencionTurnoPage() {
     });
   
     async function finalizarTratamiento(id: number) {
-    await apiFetch(`/tratamientos_realizados/${id}/estado?estado=realizado`, {
-      method: "PUT"
-    });
+      try {
+        // 1) Marcar tratamiento como realizado
+        await apiFetch(`/tratamientos_realizados/${id}/estado?estado=realizado`, {
+          method: "PUT",
+        });
 
-    await cargarTratamientos();
-  }
+        // 2) Recargar tratamientos y obtener la lista actualizada
+        const lista = await cargarTratamientos();
 
+        // 3) Verificar si todos están realizados
+        const todosFinalizados =
+          Array.isArray(lista) &&
+          lista.length > 0 &&
+          lista.every((t: any) => String(t.estado).trim().toLowerCase() === "realizado");
+
+        // 4) Si todos finalizados → cerrar turno
+        if (todosFinalizados) {
+          await apiFetch(`/turnos/${Number(turnoId)}/estado?nuevo_estado=atendido`, {
+            method: "PUT",
+          });
+        }
+      } catch (e) {
+        console.error("Error finalizando tratamiento:", e);
+      }
+    }
+
+    async function volverAgenda() {
+      try {
+        const id = Number(turnoId);
+
+        // 1) Traer SIEMPRE los tratamientos actualizados desde backend
+        const tratamientosActualizados = await apiFetch(`/turnos/${id}/tratamientos`);
+
+        const todosFinalizados =
+          Array.isArray(tratamientosActualizados) &&
+          tratamientosActualizados.length > 0 &&
+          tratamientosActualizados.every(
+            (t: any) => String(t.estado).trim().toLowerCase() === "realizado"
+          );
+
+        // 2) Si todos están finalizados, cerrar el turno
+        if (todosFinalizados) {
+          await apiFetch(`/turnos/${id}/estado?nuevo_estado=atendido`, {
+            method: "PUT",
+          });
+        }
+
+        // 3) Ir a agenda forzando recarga real
+        window.location.href = "/agenda";
+      } catch (error) {
+        console.error("Error al volver a agenda:", error);
+        window.location.href = "/agenda";
+      }
+    }
     
     return (
     <div style={{ padding: 30 }}>
       
       <button
-        onClick={() => router.back()}
+        type="button"
+        onClick={volverAgenda}
         style={{
           marginBottom: 20,
           padding: "6px 12px",

@@ -88,7 +88,7 @@ function duracionLabel(min: number) {
 export default function AgendaPage() {
   const router = useRouter();
   console.log("AGENDA NUEVA CARGADA");
-  const [fecha, setFecha] = useState(hoyISO());
+  
   const [turnos, setTurnos] = useState<Turno[]>([]);
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
   const [odontologos, setOdontologos] = useState<Odontologo[]>([]);
@@ -101,6 +101,7 @@ export default function AgendaPage() {
   const [consultorioId, setConsultorioId] = useState<number | "">("");
   const [pacienteId, setPacienteId] = useState<number | "">("");
   const [odontologoId, setOdontologoId] = useState<number | "">("");
+  const [fecha, setFecha] = useState(hoyISO());
   const [horaInicio, setHoraInicio] = useState("09:00");
   const [duracion, setDuracion] = useState(30);
   const [saving, setSaving] = useState(false);
@@ -248,6 +249,46 @@ export default function AgendaPage() {
       <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 12 }}>
         Agenda
       </h1>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          marginBottom: 20,
+        }}
+      >
+        <button
+          onClick={() => {
+            const d = new Date(fecha);
+            d.setDate(d.getDate() - 1);
+            setFecha(d.toISOString().slice(0, 10));
+          }}
+        >
+          ◀
+        </button>
+
+        <input
+          type="date"
+          value={fecha}
+          onChange={(e) => setFecha(e.target.value)}
+          style={{
+            padding: "6px 10px",
+            borderRadius: 8,
+            border: "1px solid #ddd",
+            fontWeight: 600,
+          }}
+        />
+
+        <button
+          onClick={() => {
+            const d = new Date(fecha);
+            d.setDate(d.getDate() + 1);
+            setFecha(d.toISOString().slice(0, 10));
+          }}
+        >
+          ▶
+        </button>
+      </div>
 
       <div
         style={{
@@ -464,20 +505,37 @@ export default function AgendaPage() {
                         )}
 
                         {estado === "en_atencion" && (
-                          <button
-                            onClick={() => finalizarAtencion(t)}
-                            style={{
-                              padding: "6px 10px",
-                              borderRadius: 8,
-                              border: "1px solid #0b6b2b",
-                              background: "#e8f7ee",
-                              cursor: "pointer",
-                              fontWeight: 700,
-                              fontSize: 12,
-                            }}
-                          >
-                            Finalizar
-                          </button>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button
+                              onClick={() => router.push(`/turnos/${t.id}/atencion`)}
+                              style={{
+                                padding: "6px 10px",
+                                borderRadius: 8,
+                                border: "1px solid #0b3d91",
+                                background: "#e7f1ff",
+                                cursor: "pointer",
+                                fontWeight: 700,
+                                fontSize: 12,
+                              }}
+                            >
+                              Continuar
+                            </button>
+
+                            <button
+                              onClick={() => finalizarAtencion(t)}
+                              style={{
+                                padding: "6px 10px",
+                                borderRadius: 8,
+                                border: "1px solid #0b6b2b",
+                                background: "#e8f7ee",
+                                cursor: "pointer",
+                                fontWeight: 700,
+                                fontSize: 12,
+                              }}
+                            >
+                              Finalizar
+                            </button>
+                          </div>
                         )}
                       </div>
                     </td>
@@ -599,6 +657,20 @@ export default function AgendaPage() {
                 ))
               )}
             </select>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ fontWeight: 700 }}>Fecha</label>
+            <input
+              type="date"
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+              style={{
+                padding: "8px 10px",
+                borderRadius: 8,
+                border: "1px solid #ddd",
+              }}
+            />
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
